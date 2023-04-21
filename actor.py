@@ -32,7 +32,7 @@ class PlayerActor(IPawn, EventHandleAble):
         self._position = pygame.Vector2(0, 0)
         self._sprite = pygame.image.load("player.png")
         self._component_dict: Dict[Type[IComponent], IComponent] = {}
-        self._velocaty = pygame.Vector2(0, 0)
+        self._velocity = pygame.Vector2(0, 0)
         self._gravity = pygame.Vector2(0, 0.1)
         self._in_air = False
     
@@ -47,7 +47,7 @@ class PlayerActor(IPawn, EventHandleAble):
             logging.info("already jumping")
             return
         logging.info("jumping")
-        self._velocaty.y = -5
+        self._velocity.y = -5
         self._in_air = True
 
     def handle_event(self, event: pygame.event.Event):
@@ -58,10 +58,10 @@ class PlayerActor(IPawn, EventHandleAble):
     
     def update(self, delta_time_ms: int):
         super().update(delta_time_ms)
-        self._position += self._velocaty
-        self._velocaty += self._gravity
+        self._position += self._velocity
+        self._velocity += self._gravity
         if self._position.y >= 0:
-            self._velocaty.y = 0
+            self._velocity.y = 0
             self._position.y = 0
             self._in_air = False
 
