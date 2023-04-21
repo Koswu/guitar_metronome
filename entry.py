@@ -5,8 +5,10 @@ from typing import List, Mapping, Optional, Protocol, Type, runtime_checkable
 from cairo import Surface
 import pygame
 from pytools import delta
+from actor import Actor
+from base import IActor, ICamera, IDrawAbleComponent
 
-from component import Component, MetronomeComponent, SpriteComponent
+from component import IComponent, MetronomeComponent, SpriteComponent
 
 logging.basicConfig(format="%(asctime)s;%(levelname)s;%(message)s", level=logging.INFO)
 
@@ -15,7 +17,7 @@ class Game:
         self._running = True
         self._fps = 60
         self._clock = pygame.time.Clock()
-        self._actor_list: List[Actor] = []
+        self._actor_list: List[IActor] = []
         self._screen: pygame.Surface = None
         self._camera: Camera = None
 
@@ -33,7 +35,7 @@ class Game:
         for actor in self._actor_list:
             actor.update(self._clock.get_time())
     
-    def add_actor(self, actor: Actor):
+    def add_actor(self, actor: IActor):
         self._actor_list.append(actor)
     
     def _setup(self):
@@ -73,43 +75,13 @@ class Game:
 
         pygame.quit()
 
-class Actor:
-    def __init__(self, *, position: pygame.Vector2 = pygame.Vector2(0, 0)) -> None:
-        self._position = position
-        self._component_mapping: Mapping[Type[Component], Component] = {}
-    
-    def add_component(self, component: Component):
-        component_type = type(component)
-        if component_type in self._component_mapping:
-            raise ValueError
-        component.owner = self
-        self._component_mapping[type(component)] = component
-    
-    def get_component(self, component_type: Type[Component]) -> Optional[Component]:
-        return self._component_mapping.get(component_type)
-    
-    def remove_component(self, component_type: Type[Component]):
-        del self._component_mapping[component_type]
-    
-    @property
-    def position(self) -> pygame.Vector2:
-        return self._position
-    
-    def update(self, delta_time_ms: int):
-        for component in self._component_mapping.values():
-            component.update(delta_time_ms)
-    
-    def draw(self, surface: pygame.Surface, camera: Camera):
-        for component in self._component_mapping.values():
-            if isinstance(component, DrawAbleComponent):
-                component.draw(surface, camera)
-    
 
 
-class Camera:
+
+class Camera(ICamera):
     def __init__(self, horizon: Surface) -> None:
         super().__init__()
-        self._target: Optional[Actor] = None
+        self._target: Optional[IActor] = None
         self._point_to: pygame.Vector2 = pygame.Vector2(0, 0)
         self._horizon: Surface = horizon
     
@@ -125,7 +97,7 @@ class Camera:
 
 
     
-    def set_target(self, target: Actor):
+    def set_target(self, target: IActor):
         self._target = target
     
     def world_to_screen(self, world_position: pygame.Vector2) -> pygame.Vector2:
