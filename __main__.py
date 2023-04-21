@@ -1,14 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import logging
-from typing import List, Mapping, Optional, Protocol, Type, runtime_checkable
-from cairo import Surface
+from typing import List, Mapping, Optional, Protocol, Tuple, Type, runtime_checkable
 import pygame
-from pytools import delta
-from actor import Actor
-from base import IActor, ICamera, IDrawAbleComponent
+from actor import MetronomeActor, PlayerActor
+from base import EventHandleAble, IActor, ICamera
 
-from component import IComponent, MetronomeComponent, SpriteComponent
 
 logging.basicConfig(format="%(asctime)s;%(levelname)s;%(message)s", level=logging.INFO)
 
@@ -18,14 +15,29 @@ class Game:
         self._fps = 60
         self._clock = pygame.time.Clock()
         self._actor_list: List[IActor] = []
-        self._screen: pygame.Surface = None
-        self._camera: Camera = None
+        self._screen: Optional[pygame.Surface] = None
+        self._camera: Optional[Camera] = None
+    
+    @property
+    def screen(self):
+        if self._screen is None:
+            raise ValueError
+        return self._screen
+    
+    @property
+    def camera(self):
+        if self._camera is None:
+            raise ValueError
+        return self._camera
+    
 
     def _handle_one_event(self, event: pygame.event.Event):
         if event.type == pygame.QUIT:
             self._running = False
         else:
-            pass
+            for actor in self._actor_list:
+                if isinstance(actor, EventHandleAble):
+                    actor.handle_event(event)
 
     def _handle_event(self):
         for event in pygame.event.get():
@@ -38,28 +50,33 @@ class Game:
     def add_actor(self, actor: IActor):
         self._actor_list.append(actor)
     
+    def get_actor(self, actor_type: Type[IActor]):
+        return actor_type
+
+    
     def _setup(self):
         pygame.init()
         self._screen = pygame.display.set_mode((640, 480))
         pygame.display.set_caption("Metronome")
         self._screen.fill(pygame.color.Color("white"))  
 
-        self._camera = Camera(self._screen)
+        self._camera = Camera(
+            pygame.Vector2(self._screen.get_size()), 
+            pygame.Vector2(0, -200)
+        )
 
-        metronome_actor = Actor()
-        metronome_actor.add_component(MetronomeComponent())
+        metronome_actor = MetronomeActor()
 
-        player_actor = Actor()
-        player_actor.add_component(SpriteComponent(pygame.image.load("player.png")))
+        player_actor = PlayerActor()
 
         self.add_actor(metronome_actor)
         self.add_actor(player_actor)
 
     
     def _paint(self):
-        self._screen.fill(pygame.color.Color("white"))
+        self.screen.fill(pygame.color.Color("white"))
         for actor in self._actor_list:
-            actor.draw(self._screen, self._camera)
+            actor.draw(self.screen, self.camera)
     
     def start(self):
         # pygame.mixer.init(channels=1, frequency=44100, size=-16, buffer=1024)
@@ -79,32 +96,36 @@ class Game:
 
 
 class Camera(ICamera):
-    def __init__(self, horizon: Surface) -> None:
+    def __init__(self, horizon_size: pygame.Vector2, position: pygame.Vector2) -> None:
         super().__init__()
         self._target: Optional[IActor] = None
-        self._point_to: pygame.Vector2 = pygame.Vector2(0, 0)
-        self._horizon: Surface = horizon
+        self._target_relative_position = None
+        self._position = position
+        self._horizon_size = horizon_size
     
-    @property
-    def _horizon_rect_in_world(self) -> pygame.Rect:
-        x = self._point_to.x
-        y = self._point_to.y 
-        return pygame.Rect(x, y, self._horizon.get_width(),  self._horizon.get_height())
-
+    def get_horizon_size(self) -> pygame.Vector2:
+        return self._horizon_size
     
-    def is_rect_visiable(self, rect: pygame.Rect) -> bool:
-        return rect.colliderect(self._horizon_rect_in_world)
-
-
+    def get_position(self):
+        return self._position
     
-    def set_target(self, target: IActor):
+    def set_position(self, position: pygame.Vector2):
+        self._position = position
+    
+    def lock_target(self, target: IActor):
         self._target = target
     
-    def world_to_screen(self, world_position: pygame.Vector2) -> pygame.Vector2:
-        return pygame.Vector2(world_position.x - self._point_to.x, world_position.y - self._point_to.y)
+    def unlock_target(self):
+        self._target = None
+
+    def get_target(self) -> Optional[IActor]:
+        return self._target
     
-    def update(self, ms_after_prev_update: int):
-        pass
+    def get_target_relative_position(self) -> pygame.Vector2:
+        if self._target_relative_position is None:
+            raise ValueError
+        return self._target_relative_position
+    
 
 
 

@@ -1,37 +1,76 @@
-from typing import Mapping, Optional, Type
+import logging
+from telnetlib import IAC
+from typing import Dict, Mapping, Optional, Type
 import pygame
 
-from base import ICamera, IComponent, IDrawAbleComponent
+from base import EventHandleAble, IActor, ICamera, IComponent, IPawn
 
 
-class Actor:
-    def __init__(self, *, position: pygame.Vector2 = pygame.Vector2(0, 0)) -> None:
-        self._position = position
-        self._component_mapping: Mapping[Type[IComponent], IComponent] = {}
-    
-    def add_component(self, component: IComponent):
-        component_type = type(component)
-        if component_type in self._component_mapping:
-            raise ValueError
-        component.owner = self
-        self._component_mapping[type(component)] = component
-    
-    def get_component(self, component_type: Type[IComponent]) -> Optional[IComponent]:
-        return self._component_mapping.get(component_type)
-    
-    def remove_component(self, component_type: Type[IComponent]):
-        del self._component_mapping[component_type]
-    
-    @property
-    def position(self) -> pygame.Vector2:
-        return self._position
+class MetronomeActor(IActor):
+    def __init__(self, bpm: int = 120):
+        self._component_dict: Dict[Type[IComponent], IComponent] = {}
+        self._bpm = bpm
+        self._ms_after_prev_click = 0
+        self._click_sound = pygame.mixer.Sound("metronome.wav")
+        self._sec_beat_time = 60 / self._bpm
+
+    def _get_component_dict(self) -> Dict[Type[IComponent], IComponent]:
+        return self._component_dict
     
     def update(self, delta_time_ms: int):
-        for component in self._component_mapping.values():
-            component.update(delta_time_ms)
+        super().update(delta_time_ms)
+        self._ms_after_prev_click += delta_time_ms
+        if self._ms_after_prev_click >= self._sec_beat_time * 1000:
+            logging.info("playing click")
+            self._ms_after_prev_click = 0
+            self._click_sound.play()
+
+
+class PlayerActor(IPawn, EventHandleAble):
+    def __init__(self) -> None:
+        super().__init__()
+        self._position = pygame.Vector2(0, 0)
+        self._sprite = pygame.image.load("player.png")
+        self._component_dict: Dict[Type[IComponent], IComponent] = {}
+        self._velocaty = pygame.Vector2(0, 0)
+        self._gravity = pygame.Vector2(0, 0.1)
+        self._in_air = False
     
+    def _get_component_dict(self) -> Dict[Type[IComponent], IComponent]:
+        return self._component_dict
+    
+    def get_position(self) -> pygame.Vector2:
+        return self._position
+    
+    def jump(self):
+        if self._in_air:
+            logging.info("already jumping")
+            return
+        logging.info("jumping")
+        self._velocaty.y = -5
+        self._in_air = True
+
+    def handle_event(self, event: pygame.event.Event):
+        if event.type != pygame.KEYDOWN:
+            return
+        if event.key == pygame.K_SPACE:
+            self.jump()
+    
+    def update(self, delta_time_ms: int):
+        super().update(delta_time_ms)
+        self._position += self._velocaty
+        self._velocaty += self._gravity
+        if self._position.y >= 0:
+            self._velocaty.y = 0
+            self._position.y = 0
+            self._in_air = False
+
     def draw(self, surface: pygame.Surface, camera: ICamera):
-        for component in self._component_mapping.values():
-            if isinstance(component, IDrawAbleComponent):
-                component.draw(surface, camera)
+        super().draw(surface, camera)
+        
+        if camera.is_rect_visiable(self._sprite.get_rect().move(self._position.x, self._position.y)):
+            surface.blit(self._sprite, camera.world_to_screen(self._position))
+    
+    
+    
     
