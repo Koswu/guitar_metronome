@@ -12,6 +12,7 @@ from typing import (
     Type,
     runtime_checkable,
 )
+from numpy import isin
 import pygame
 from actor import BounsActor, MetronomeActor, PlayerActor
 from base import (
@@ -23,7 +24,14 @@ from base import (
     IEvent,
     SingleActorWarpper,
 )
-from event import EVENT_TYPE, ActorCollisionEvent, EventManager
+from event import (
+    EVENT_TYPE,
+    ActorCollisionEvent,
+    ActorCreateEvent,
+    EventManager,
+    GuitarHitEvent,
+)
+from guitar_input import GuitarInput
 
 
 logging.basicConfig(format="%(asctime)s;%(levelname)s;%(message)s", level=logging.INFO)
@@ -37,6 +45,7 @@ class Game:
         self._actor_list: List[IActor] = []
         self._screen: Optional[pygame.Surface] = None
         self._camera: Optional[Camera] = None
+        self._guitar_input: Optional[GuitarInput] = None
 
     @property
     def screen(self):
@@ -51,12 +60,17 @@ class Game:
         return self._camera
 
     def _handle_one_event(self, event: IEvent):
+        logging.info(event)
         match event.get_type():
             case EVENT_TYPE.QUIT:
                 self._running = False
             case EVENT_TYPE.ACTOR_DESTRUCT:
                 assert isinstance(event, SingleActorWarpper)
+                logging.info(f"removing actor {event.get_actor()}")
                 self._actor_list.remove(event.get_actor())
+            case EVENT_TYPE.ACTOR_CREATE:
+                assert isinstance(event, ActorCreateEvent)
+                self._actor_list.append(event.get_actor_type()(**event.get_kwargs()))
             case _:
                 for actor in self._actor_list:
                     if isinstance(actor, EventHandleAble):
@@ -85,10 +99,13 @@ class Game:
         self._camera = Camera(
             pygame.Vector2(self._screen.get_size()), pygame.Vector2(0, -200)
         )
+        self._guitar_input = GuitarInput(
+            lambda pitch: EventManager.post_event(GuitarHitEvent(pitch))
+        )
 
         metronome_actor = MetronomeActor()
         player_actor = PlayerActor()
-        bouns_actor = BounsActor(pygame.Vector2(0, -100))
+        bouns_actor = BounsActor(pygame.Vector2(200, -100))
 
         self.add_actor(metronome_actor)
         self.add_actor(player_actor)
@@ -98,6 +115,14 @@ class Game:
         self.screen.fill(pygame.color.Color("white"))
         for actor in self._actor_list:
             actor.draw(self.screen, self.camera)
+        for actor in self._actor_list:
+            if isinstance(actor, CollisionableActor):
+                pygame.draw.rect(
+                    self.screen,
+                    pygame.color.Color("red"),
+                    self.camera.world_rect_to_screen(actor.get_collision_rect()),
+                    1,
+                )
 
     def _process_collision(self):
         collisionable_actors = [
@@ -105,7 +130,7 @@ class Game:
         ]
         for actor_a, actor_b in itertools.combinations(collisionable_actors, 2):
             if actor_a.get_collision_rect().colliderect(actor_b.get_collision_rect()):
-                logging.info("collision")
+                logging.info(f"collision {actor_a} {actor_b}")
                 EventManager.post_event(ActorCollisionEvent(actor_a, actor_b))
 
     def start(self):

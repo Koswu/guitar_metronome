@@ -1,6 +1,6 @@
 from enum import Enum
 from telnetlib import IAC
-from typing import TYPE_CHECKING, List, Optional, Protocol, Tuple
+from typing import TYPE_CHECKING, List, Optional, Protocol, Tuple, Type
 from django.urls import clear_script_prefix
 from matplotlib.pyplot import cla
 import pygame
@@ -22,6 +22,21 @@ class Event(IEvent):
 
     def get_type(self) -> IEventType:
         return self._event_type
+
+
+class ActorCreateEvent(IEvent):
+    def __init__(self, actor_type: Type[IActor], **kwargs):
+        self._kwargs = kwargs
+        self._actor_type = actor_type
+
+    def get_kwargs(self) -> dict:
+        return self._kwargs
+
+    def get_actor_type(self) -> Type[IActor]:
+        return self._actor_type
+
+    def get_type(self) -> IEventType:
+        return EVENT_TYPE.ACTOR_CREATE
 
 
 class ActorDestructEvent(IActorDestructEvent):
@@ -57,7 +72,9 @@ class EVENT_TYPE(Enum):
     QUIT = 1
     ACTOR_DESTRUCT = 2
     ACTOR_COLLISION = 3
-    KEY_DOWN = 4
+    ACTOR_CREATE = 4
+    KEY_DOWN = 10
+    GUIATR_HIT = 11
 
     def get_type_id(self) -> int:
         return self.value
@@ -88,6 +105,14 @@ class KeyDownEvent(IKeyDownEvent):
 
     def get_type(self) -> IEventType:
         return EVENT_TYPE.KEY_DOWN
+
+
+class GuitarHitEvent(IEvent):
+    def __init__(self, pitch: int) -> None:
+        self.pitch = pitch
+
+    def get_type(self) -> IEventType:
+        return EVENT_TYPE.GUIATR_HIT
 
 
 class EventManager:

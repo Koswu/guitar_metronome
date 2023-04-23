@@ -20,6 +20,14 @@ class Updateable(Protocol):
 
 
 class ICamera(Updateable, Protocol):
+    def world_rect_to_screen(self, world_rect: pygame.Rect) -> pygame.Rect:
+        return pygame.Rect(
+            world_rect.x - self.get_position().x,
+            world_rect.y - self.get_position().y,
+            world_rect.width,
+            world_rect.height,
+        )
+
     def world_to_screen(self, world_position: pygame.Vector2) -> pygame.Vector2:
         return pygame.Vector2(
             world_position.x - self.get_position().x,
