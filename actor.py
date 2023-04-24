@@ -86,9 +86,6 @@ class PlayerActor(IPawn, EventHandleAble, CollisionableActor):
             self._handle_key_down_event(event)
         elif isinstance(event, GuitarHitEvent):
             self._handle_guitar_hit_event(event)
-
-    def update(self, delta_time_ms: int):
-        super().update(delta_time_ms)
         t = delta_time_ms
         self._position += self._velocity * t
         self._velocity += self._gravity
@@ -109,7 +106,7 @@ class PlayerActor(IPawn, EventHandleAble, CollisionableActor):
         return pygame.Rect(
             rect.centerx - collision_size // 2,
             rect.top - collision_size + 20,
-            collision_size,
+            collision_size,pasuspender -- audacity
             collision_size,
         )
 
