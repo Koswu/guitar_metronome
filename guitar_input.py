@@ -44,7 +44,7 @@ class GuitarInput:
         self._inner_onset_detector: IOnsetDetector = aubio.onset(  # type: ignore
             "default", self._buffer_size, self._buffer_size // 2, self._sample_rate
         )
-        self._inner_onset_detector.set_threshold(0.1)
+        self._inner_onset_detector.set_threshold(0.2)
         self._inner_pitch_detector.set_unit("midi")
         self._inner_pitch_detector.set_silence(-40)
         self._pyaudio = pyaudio.PyAudio()
